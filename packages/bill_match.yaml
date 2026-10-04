@@ -1,0 +1,212 @@
+# Aurum Bill Match (free core) 1.0.0 - Home Assistant energy cost that includes the standing charge.
+# Built only with Home Assistant's own features (helpers + one trigger-based template block). No custom integration,
+# no HACS plugin, nothing loaded from the internet. MIT licence.
+# Money numbers are ESTIMATES from the tariff you type in - check them against your real bill.
+# Install: copy this file to /config/packages/bill_match.yaml, make sure configuration.yaml has
+#   homeassistant:
+#     packages: !include_dir_named packages
+# then restart Home Assistant and fill in the 5 "Bill Match" helpers (README). Tested on Home Assistant 2026.9.4.
+# Not paying in EUR? Change the word EUR in the line marked CURRENCY below to your Home Assistant currency (e.g. GBP).
+#
+# How it counts (once a minute, at start-up and whenever you change a helper):
+# - energy: the grid meter's increase since the last reading x the price per kWh that was in effect. A meter that drops
+#   below 90 % of the last reading (reset, new meter) starts again from its new value - nothing negative, no jump.
+#   Smaller dips are ignored. While the meter is unavailable nothing is counted; the next good reading catches up.
+# - start date: counting begins on that date, or today if it is in the past (Bill Match cannot know your meter's past).
+# - standing charge: every day from then to today (today included) is charged once, at the standing charge
+#   that was in effect. A new price counts from that moment on. A higher standing charge counts from today (today is
+#   topped up to it - never charged twice), a lower one from tomorrow (today is already charged). Past days keep their old
+#   value and the total never goes down.
+
+input_number:
+  bill_match_standing_charge:
+    name: Bill Match - standing charge per day
+    icon: mdi:calendar-today
+    min: 0
+    max: 20
+    step: 0.0001
+    mode: box
+  bill_match_price_kwh:
+    name: Bill Match - price per kWh
+    icon: mdi:cash
+    min: 0
+    max: 5
+    step: 0.0001
+    mode: box
+
+input_button:
+  bill_match_new_meter:
+    name: Bill Match - new meter (start again from its reading)
+    icon: mdi:meter-electric-outline
+
+input_text:
+  bill_match_energy_source:
+    name: Bill Match - grid meter (entity id)
+    icon: mdi:meter-electric
+    max: 255
+  bill_match_price_entity:
+    name: Bill Match - price entity (optional, entity id)
+    icon: mdi:cash-sync
+    max: 255
+
+input_datetime:
+  bill_match_start:
+    name: Bill Match - start date
+    icon: mdi:calendar-start
+    has_date: true
+    has_time: false
+
+template:
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: bill_match_refresh
+      - trigger: state
+        entity_id:
+          - input_number.bill_match_standing_charge
+          - input_number.bill_match_price_kwh
+          - input_text.bill_match_energy_source
+          - input_text.bill_match_price_entity
+          - input_button.bill_match_new_meter
+          - input_datetime.bill_match_start
+    variables:
+      bm: >-
+        {#- our own two sensors, found by their bm_role attribute: a renamed entity id keeps its totals #}
+        {%- set E = 'sensor.bill_match_energy_cost' if state_attr('sensor.bill_match_energy_cost', 'bm_role') == 'energy' else (states.sensor | selectattr('attributes.bm_role', 'defined') | selectattr('attributes.bm_role', 'eq', 'energy') | map(attribute='entity_id') | first | default('sensor.bill_match_energy_cost')) %}
+        {%- set T = 'sensor.bill_match_total_cost' if state_attr('sensor.bill_match_total_cost', 'bm_role') == 'total' else (states.sensor | selectattr('attributes.bm_role', 'defined') | selectattr('attributes.bm_role', 'eq', 'total') | map(attribute='entity_id') | first | default('sensor.bill_match_total_cost')) %}
+        {%- set tid = trigger.entity_id if trigger is defined and trigger.entity_id is defined else '' %}
+        {%- set today = now().strftime('%Y-%m-%d') %}
+        {%- set problems = namespace(l=[]) %}
+        {#- start date: an unset date helper reads 1970-01-01 #}
+        {%- set start = states('input_datetime.bill_match_start') %}
+        {%- set start_set = start[:4] | int(0) >= 2000 %}
+        {%- set started = start_set and start <= today %}
+        {%- if not start_set %}{% set problems.l = problems.l + ['Set the Bill Match start date'] %}
+        {%- elif not started %}{% set problems.l = problems.l + ['Counting starts on ' ~ start] %}{% endif %}
+        {#- grid meter reading in kWh #}
+        {%- set src = states('input_text.bill_match_energy_source') | trim %}
+        {%- set src = '' if src | lower in ['unknown', 'unavailable', 'none'] else src %}
+        {%- set unit = state_attr(src, 'unit_of_measurement') if src else none %}
+        {%- set factor = {'Wh': 0.001, 'kWh': 1, 'MWh': 1000}.get(unit) %}
+        {%- set raw = states(src) | float(none) if src else none %}
+        {%- set reading = raw * factor if raw is not none and factor is not none else none %}
+        {%- if not src %}{% set problems.l = problems.l + ['Set the grid meter (entity id)'] %}
+        {%- elif raw is none %}{% set problems.l = problems.l + ['Grid meter ' ~ src ~ ' has no number right now'] %}
+        {%- elif factor is none %}{% set problems.l = problems.l + ['Grid meter unit ' ~ unit ~ ' not supported (Wh, kWh or MWh)'] %}{% endif %}
+        {#- price per kWh: price entity if set, else the fixed price #}
+        {%- set prev_price = state_attr(E, 'price') %}
+        {%- set fixed = states('input_number.bill_match_price_kwh') | float(0) %}
+        {%- set pe = states('input_text.bill_match_price_entity') | trim %}
+        {%- set pe = '' if pe | lower in ['unknown', 'unavailable', 'none'] else pe %}
+        {%- if pe %}
+          {%- set pu = state_attr(pe, 'unit_of_measurement') or '' %}
+          {#- unit must be <our currency> or cents/pence per kWh, MWh or Wh #}
+          {%- set cur = state_attr(T, 'unit_of_measurement') or '' %}
+          {%- set parts = (pu.split('/') + ['', ''])[:2] %}
+          {%- set minor = {'EUR': ['ct', 'c', 'cent', 'cents'], 'GBP': ['p', 'pence'], 'USD': ['c', '¢', 'cent', 'cents'],
+                           'AUD': ['c', '¢', 'cent', 'cents'], 'CAD': ['c', '¢', 'cent', 'cents'], 'NZD': ['c', '¢', 'cent', 'cents'],
+                           'CHF': ['rp', 'rappen'], 'SEK': ['öre', 'ore'], 'NOK': ['øre', 'ore'], 'DKK': ['øre', 'ore']}.get(cur, []) %}
+          {%- set nf = 1 if cur and parts[0] == cur else 0.01 if parts[0] | lower in minor else none %}
+          {%- set df = {'kWh': 1, 'MWh': 0.001, 'Wh': 1000}.get(parts[1]) %}
+          {%- set pf = nf * df if nf is not none and df is not none else none %}
+          {%- set pv = states(pe) | float(none) %}
+          {%- if pv is not none and pf is not none %}{% set cur_price = pv * pf %}
+          {%- else %}
+            {%- set cur_price = prev_price if prev_price is number else fixed %}
+            {%- set problems.l = problems.l + ['Price entity ' ~ pe ~ (' unit ' ~ pu ~ ' not supported (' ~ cur ~ ' or its cents per kWh, MWh or Wh)' if pf is none else ' has no number - using the last price')] %}
+          {%- endif %}
+        {%- else %}{% set cur_price = fixed %}{% endif %}
+        {#- energy part #}
+        {%- set prev = state_attr(E, 'last_reading') %}
+        {%- set prev = prev if prev is number else none %}
+        {%- set acc = state_attr(E, 'exact') %}
+        {%- set acc = acc if acc is number else states(E) | float(0) %}
+        {%- set use_price = prev_price if prev_price is number else cur_price %}
+        {#- more than 250 kW on average since the meter last moved = a jump (new meter, wrong value): new baseline, not counted #}
+        {%- set lt = state_attr(E, 'last_time') %}
+        {%- set hours = (as_timestamp(now()) - lt) / 3600 if lt is number else none %}
+        {%- set ns = namespace(delta=0, reading=prev, time=lt, jumps=state_attr(E, 'jump_log') or []) %}
+        {%- if reading is not none %}
+          {%- if not started or prev is none or state_attr(E, 'source') != src or tid == 'input_button.bill_match_new_meter' %}{% set ns.reading = reading %}
+          {%- elif reading >= prev and hours is not none and reading - prev > 250 * ([hours, 1 / 60] | max) %}
+            {%- set ns.reading = reading %}
+            {%- set ns.jumps = (ns.jumps + [{'date': now().strftime('%Y-%m-%d %H:%M'), 'kwh': (reading - prev) | round(3)}])[-5:] %}
+          {%- elif reading >= prev %}{% set ns.delta = reading - prev %}{% set ns.reading = reading %}
+          {%- elif reading < prev * 0.9 %}{% set ns.reading = reading %}
+          {%- endif %}
+        {%- endif %}
+        {#- the jump window runs from the last time the meter MOVED (sparse meters report every 15-30 min) #}
+        {%- if ns.reading != prev %}{% set ns.time = as_timestamp(now()) %}{% endif %}
+        {%- if ns.jumps and ns.jumps[-1].date[:10] == today %}
+          {%- set problems.l = problems.l + ['Grid meter jumped up by ' ~ ns.jumps[-1].kwh ~ ' kWh at ' ~ ns.jumps[-1].date ~ ' - not counted (new meter or wrong value?)'] %}
+        {%- endif %}
+        {%- set energy = acc + ns.delta * use_price %}
+        {%- set plog = state_attr(E, 'price_log') or [] %}
+        {%- if prev_price is number and (cur_price - prev_price) | abs > 0.0000001 %}
+          {%- set plog = (plog + [{'date': now().strftime('%Y-%m-%d %H:%M'), 'old': prev_price, 'new': cur_price}])[-10:] %}
+        {%- endif %}
+        {#- standing charge part: each day once, at the fee in effect for that day #}
+        {%- set fee_now = states('input_number.bill_match_standing_charge') | float(0) %}
+        {%- set fee_prev = state_attr(T, 'fee') %}
+        {%- set fee_use = fee_prev if fee_prev is number else fee_now %}
+        {%- set sacc = state_attr(T, 'standing_exact') %}
+        {%- set sacc = sacc if sacc is number else 0 %}
+        {%- set paid = state_attr(T, 'paid_through') %}
+        {%- set ch = state_attr(T, 'charged_today') %}
+        {%- set sp = namespace(acc=sacc, paid=paid, ch=ch if ch is number else fee_use) %}
+        {%- if started %}
+          {%- if paid %}{% set days = (as_datetime(today) - as_datetime(paid)).days %}
+          {%- else %}{% set days = 1 %}{% endif %}  {#- first day ever: today (no back-fill: the meter's past is unknown) #}
+          {%- if days > 0 %}{% set sp.acc = sacc + days * fee_use %}{% set sp.paid = today %}{% set sp.ch = fee_use %}{% endif %}
+          {#- a fee HIGHER than what today was charged also counts for today (difference added); a lower one from tomorrow #}
+          {%- if sp.paid == today and fee_now > sp.ch %}{% set sp.acc = sp.acc + fee_now - sp.ch %}{% set sp.ch = fee_now %}{% endif %}
+        {%- endif %}
+        {%- set flog = state_attr(T, 'fee_log') or [] %}
+        {%- if fee_prev is number and (fee_now - fee_prev) | abs > 0.0000001 %}
+          {%- set flog = (flog + [{'date': now().strftime('%Y-%m-%d %H:%M'), 'old': fee_prev, 'new': fee_now}])[-10:] %}
+        {%- endif %}
+        {%- set since = state_attr(T, 'counting_since') %}
+        {%- set since = since if since and since is string and since[:4] | int(0) >= 2000 else (today if started else none) %}
+        {{ {'energy': energy, 'reading': ns.reading, 'time': ns.time, 'jumps': ns.jumps, 'src': src, 'price': cur_price, 'price_log': plog,
+            'standing': sp.acc, 'paid': sp.paid, 'ch': sp.ch, 'fee': fee_now, 'fee_log': flog, 'since': since,
+            'problems': problems.l} }}
+    sensor:
+      - name: Bill Match energy cost
+        unique_id: bill_match_energy_cost
+        default_entity_id: sensor.bill_match_energy_cost
+        icon: mdi:lightning-bolt
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: &bm_currency EUR   # CURRENCY - your Home Assistant currency
+        state: "{{ bm.energy | round(2) }}"
+        attributes:
+          bm_role: energy
+          exact: "{{ bm.energy }}"
+          last_reading: "{{ bm.reading }}"
+          last_time: "{{ bm.time }}"
+          jump_log: "{{ bm.jumps }}"
+          source: "{{ bm.src }}"
+          price: "{{ bm.price }}"
+          price_log: "{{ bm.price_log }}"
+      - name: Bill Match total cost
+        unique_id: bill_match_total_cost
+        default_entity_id: sensor.bill_match_total_cost
+        icon: mdi:receipt-text
+        device_class: monetary
+        state_class: total
+        unit_of_measurement: *bm_currency
+        state: "{{ (bm.energy + bm.standing) | round(2) }}"
+        attributes:
+          bm_role: total
+          energy_part: "{{ bm.energy | round(2) }}"
+          standing_part: "{{ bm.standing | round(2) }}"
+          standing_exact: "{{ bm.standing }}"
+          paid_through: "{{ bm.paid }}"
+          charged_today: "{{ bm.ch }}"
+          fee: "{{ bm.fee }}"
+          fee_log: "{{ bm.fee_log }}"
+          counting_since: "{{ bm.since }}"
+          problems: "{{ bm.problems }}"

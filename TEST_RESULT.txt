@@ -1,0 +1,395 @@
+Bill Match tests 2026-10-03T20:15:09+03:00 - HA 2026.9.4
+(sha256 manifest of the tested files: kept with the source)
+== test_core.py on fresh core
+ok   config check valid (core)
+ok   M1 entity exists: sensor.bill_match_energy_cost
+ok   M1 entity exists: sensor.bill_match_total_cost
+ok   M1 entity exists: input_number.bill_match_standing_charge
+ok   M1 entity exists: input_number.bill_match_price_kwh
+ok   M1 entity exists: input_text.bill_match_energy_source
+ok   M1 entity exists: input_text.bill_match_price_entity
+ok   M1 entity exists: input_datetime.bill_match_start
+ok   M1 sensor.bill_match_energy_cost monetary / total / EUR
+ok   M1 sensor.bill_match_total_cost monetary / total / EUR
+ok   M1 fresh install: problems tell the user to set the grid meter
+ok   M1 fresh install: total 0.0
+ok   M2 standing charge for 30 unpaid days (today-29 .. today, today included)
+ok   M2 paid_through = today
+ok   M3 energy part restored after restart
+ok   M3 standing part restored, no extra day
+ok   M3 no double count after restart (meter unchanged)
+ok   M3 energy cost matches after restart
+ok   M2 30 days: total = sum(kWh x price) + 30 x fee to the cent (67.70)
+ok   M2 energy sensor = sum(kWh x price)
+ok   M2 price log has the price changes
+ok   M2 no problems listed
+ok   M4 reset to 0: no negative, no jump
+ok   M4 counting continues after reset (5 kWh)
+ok   M4 small dip ignored, then +0.5 kWh counted once
+ok   M4 unavailable: nothing counted + problem shown
+ok   M4 unavailable -> value: the 3 kWh are caught up once (no jump)
+ok   M4 new meter starting higher (+991.5 kWh in 1 h): not counted
+ok   M4 jump written to jump_log + shown in problems
+ok   M4 +200 kWh in 1 h (200 kW) is counted
+ok   M4 new meter starting at 20: baseline only
+ok   M4 'new meter' button: new baseline 70, nothing counted
+ok   M4 after the button: +1 kWh counted
+ok   no state write while the meter does not move
+ok   M5 lower standing charge: today keeps the old value
+ok   M5 fee log written (old 0.5 -> new 0.3)
+ok   M5 higher standing charge: today topped up to 0.80 (+0.30, today was charged 0.50)
+ok   M5 missed days charged at the fee in effect then (3 x 0.8 + 0.2 today)
+ok   M5 total never went down in any normal step
+ok   price entity in EUR/MWh -> 0.30 per kWh
+ok   price entity: 10 kWh x 0.30 counted
+ok   missing price entity: keeps the last price + problem shown
+ok   price entity in ct/kWh -> 0.25 per kWh
+ok   price entity in USD/kWh (HA currency EUR): refused, last price kept, problem shown
+ok   price entity in p/kWh (HA currency EUR): refused, problem shown
+ok   dynamic price: +1 kWh at 0.20
+ok   dynamic price: meter silent over 2 price changes -> the whole step at the latest price seen (0.40)
+ok   dynamic price: two meter reports between checks -> one step, one price (1 kWh x 0.40)
+ok   dynamic price: unavailable meter catches up 3 kWh at the latest price seen before (0.50)
+ok   price entity cleared -> fixed price again
+ok   total never went down (incl. price entity steps)
+ok   renamed sensors: counting continues on the renamed ids (+2 kWh), nothing reset
+ok   renamed back: same totals
+ok   M6 energy prefs saved with sensor.bill_match_total_cost as cost
+ok   M6 total cost is a 'sum' statistic in EUR
+     waiting up to 6 min for the first long-term statistics compile ...
+ok   M6 long-term statistics rows exist for the total cost
+     waiting for a statistics row with the current total ...
+ok   M6 statistics caught up with the current total
+     waiting up to ~13 min for the next statistics rows ...
+ok   M6 statistics: last row has the new total (after a restart)
+ok   M6 statistics sum grew by exactly the cost added (14 kWh x 0.22)
+ok   M6 statistics: no negative step in any 5-minute row
+ok   M6 Energy dashboard validation: no issues for the grid source
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_upgrade.py on fresh core
+ok   config check valid (core)
+ok   free edition: past start date -> today only: 1 day x 0.40 + 20 kWh x 0.25 = 5.40
+ok   free edition: counting_since = today
+ok   after upgrade: same total (VAT/fees still 0)
+ok   after upgrade: the two cost sensors keep their entity ids (no duplicate _2 entities)
+ok   after upgrade: free entities all still there
+ok   after upgrade: counting continues (+4 kWh x 0.25)
+ok   upgrade VAT step: all-in price per kWh stays 0.25 after converting + VAT 20 %
+ok   upgrade VAT step: today's fixed part not raised (0.40 incl. VAT before and after)
+ok   upgrade VAT step: +2 kWh counted at 0.25 all-in (VAT not counted twice)
+ok   after upgrade: one statistic for the total cost (history continues)
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_pro.py on fresh pro
+ok   config check valid (pro)
+ok   M1 Pro entity exists: sensor.bill_match_energy_cost
+ok   M1 Pro entity exists: sensor.bill_match_total_cost
+ok   M1 Pro entity exists: sensor.bill_match_this_bill
+ok   M1 Pro entity exists: sensor.bill_match_bill_forecast
+ok   M1 Pro entity exists: sensor.bill_match_last_bill_difference
+ok   M1 Pro entity exists: input_number.bill_match_monthly_fee
+ok   M1 Pro entity exists: input_number.bill_match_annual_fee
+ok   M1 Pro entity exists: input_number.bill_match_monthly_credit
+ok   M1 Pro entity exists: input_number.bill_match_annual_credit
+ok   M1 Pro entity exists: input_number.bill_match_levy_1
+ok   M1 Pro entity exists: input_number.bill_match_vat
+ok   M1 Pro entity exists: input_number.bill_match_last_bill
+ok   M1 Pro entity exists: input_boolean.bill_match_vat_on_fees
+ok   M1 Pro entity exists: input_datetime.bill_match_period_start
+ok   M1 Pro entity exists: input_select.bill_match_period_length
+ok   M1 Pro entity exists: script.bill_match_preset_uk
+ok   M1 Pro entity exists: script.bill_match_preset_nl
+ok   M1 Pro entity exists: script.bill_match_preset_de
+ok   M1 Pro entity exists: script.bill_match_preset_gr
+ok   M1 Pro fresh install: total 0.0 (no negative default fees)
+ok   M1 Pro fresh install: grid meter problem shown
+ok   M7 install mid-period (counting since today, bill since the 1st): period marked incomplete
+ok   M7 period set before counting starts: incomplete
+ok   M7 ... and still incomplete once counting starts mid-period
+ok   macro dim(2028, 2) = 29
+ok   macro dim(2100, 2) = 28
+ok   macro dim(2000, 2) = 29
+ok   macro dim(2027, 2) = 28
+ok   macro dim(2026, 12) = 31
+ok   macro diy(2028) = 366
+ok   macro diy(2100) = 365
+ok   macro addm('2028-01-31', 1) = 2028-02-29
+ok   macro addm('2027-01-31', 1) = 2027-02-28
+ok   macro addm('2026-11-15', 2) = 2027-01-15
+ok   macro addm('2024-02-29', 12) = 2025-02-28
+ok   macro addm('2026-03-31', -1) = 2026-02-28
+ok   macro (as_datetime('2026-10-26') - as_datetime('2026-10-25')).days = 1
+ok   macro (as_datetime('2027-03-29') - as_datetime('2027-03-28')).days = 1
+ok   macro dayfee(2028, 2, {'standing': 0, 'monthly': 29, 'annual': 0,  = 1.0
+ok   M7 gross price per kWh = (0.20 + 0.03 + 0.01) x 1.21
+ok   M7 a full calendar month of fees = (standing x days + monthly fee + yearly fee x days/365) x 1.21
+ok   M7 fixed part to the cent (43.88)
+ok   M7 10 kWh x gross price counted
+ok   M7 kWh counted = 10
+ok   M7 total = energy + fixed
+ok   M7 counting began before the bill period: marked incomplete (energy cannot be split)
+ok   M7 current bill period = this calendar month
+ok   M7 this bill so far = this month's fixed days + energy
+ok   M7 forecast = so far + remaining fixed days + average energy per day (72.34)
+ok   M7 period for anchor 2026-01-31 every 1 month(s) = 2026-09-30 .. 2026-10-31
+ok   M7 period for anchor 2025-11-30 every 2 month(s) = 2026-09-30 .. 2026-11-30
+ok   M7 period for anchor 2025-12-15 every 3 month(s) = 2026-09-15 .. 2026-12-15
+ok   M7 period for anchor 2024-02-29 every 12 month(s) = 2026-02-28 .. 2027-02-28
+ok   M7 period for anchor 2026-10-03 every 1 month(s) = 2026-10-03 .. 2026-11-03
+ok   M7 anchor moved later mid-period: no last period invented
+ok   M7 anchor moved after counting began: period marked incomplete
+ok   M7 late roll-over: last period stored but incomplete, new period incomplete
+ok   M7 late roll-over: no last-bill comparison, the hint says why
+ok   M7 missed a whole period: no last-bill comparison, period incomplete, problem shown
+ok   M7 roll-over on the first day but hours after midnight (no check around midnight): both incomplete, reason off_at_rollover
+ok   M7 last bill difference = 56.00 - 50.00 = 6.00
+ok   M7 hint: per-day and per-kWh change WITHOUT VAT (VAT 21 %, also on fees)
+ok   M7 hint uses THAT period's VAT, not today's
+ok   M3 Pro restart: total, period, last period and this bill restored
+ok   M5 Pro monthly credit (lower fixed part) counts from tomorrow
+ok   M5 Pro fee log names the credit change
+ok   M5 Pro higher fixed part: today topped up to the new day fee (never charged twice)
+ok   card: all markdown blocks render without an error
+ok   card: 'This bill' block shows the amount with 2 decimals + currency + forecast
+ok   card: breakdown table shows total = state with 2 decimals
+ok   card: hint block shows the last-bill hint
+ok   card: incomplete period (started_mid_period) shows its own reason
+ok   card: incomplete period (off_at_rollover) shows its own reason
+ok   card: incomplete period (gap) shows its own reason
+ok   card: incomplete period (not_started) shows its own reason
+ok   credits > fees: today's fixed part is negative (-17.72) and the total goes down by it
+ok   preset UK: VAT 5 %, VAT on fees on, every 1 month
+ok   preset NL: VAT 21 %, VAT on fees on, every 12 months
+ok   preset DE: VAT 19 %, VAT on fees on, every 12 months
+ok   preset GR: VAT 6 %, VAT on fees on, every 1 month
+ok   presets leave the price alone
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_core.py on fresh pro
+ok   config check valid (pro)
+ok   M1 entity exists: sensor.bill_match_energy_cost
+ok   M1 entity exists: sensor.bill_match_total_cost
+ok   M1 entity exists: input_number.bill_match_standing_charge
+ok   M1 entity exists: input_number.bill_match_price_kwh
+ok   M1 entity exists: input_text.bill_match_energy_source
+ok   M1 entity exists: input_text.bill_match_price_entity
+ok   M1 entity exists: input_datetime.bill_match_start
+ok   M1 sensor.bill_match_energy_cost monetary / total / EUR
+ok   M1 sensor.bill_match_total_cost monetary / total / EUR
+ok   M1 fresh install: problems tell the user to set the grid meter
+ok   M1 fresh install: total 0.0
+ok   M2 standing charge for 30 unpaid days (today-29 .. today, today included)
+ok   M2 paid_through = today
+ok   M3 energy part restored after restart
+ok   M3 standing part restored, no extra day
+ok   M3 no double count after restart (meter unchanged)
+ok   M3 energy cost matches after restart
+ok   M2 30 days: total = sum(kWh x price) + 30 x fee to the cent (67.70)
+ok   M2 energy sensor = sum(kWh x price)
+ok   M2 price log has the price changes
+ok   M2 no problems listed
+ok   M4 reset to 0: no negative, no jump
+ok   M4 counting continues after reset (5 kWh)
+ok   M4 small dip ignored, then +0.5 kWh counted once
+ok   M4 unavailable: nothing counted + problem shown
+ok   M4 unavailable -> value: the 3 kWh are caught up once (no jump)
+ok   M4 new meter starting higher (+991.5 kWh in 1 h): not counted
+ok   M4 jump written to jump_log + shown in problems
+ok   M4 +200 kWh in 1 h (200 kW) is counted
+ok   M4 new meter starting at 20: baseline only
+ok   M4 'new meter' button: new baseline 70, nothing counted
+ok   M4 after the button: +1 kWh counted
+ok   no state write while the meter does not move
+ok   M5 lower standing charge: today keeps the old value
+ok   M5 fee log written (old 0.5 -> new 0.3)
+ok   M5 higher standing charge: today topped up to 0.80 (+0.30, today was charged 0.50)
+ok   M5 missed days charged at the fee in effect then (3 x 0.8 + 0.2 today)
+ok   M5 total never went down in any normal step
+ok   price entity in EUR/MWh -> 0.30 per kWh
+ok   price entity: 10 kWh x 0.30 counted
+ok   missing price entity: keeps the last price + problem shown
+ok   price entity in ct/kWh -> 0.25 per kWh
+ok   price entity in USD/kWh (HA currency EUR): refused, last price kept, problem shown
+ok   price entity in p/kWh (HA currency EUR): refused, problem shown
+ok   dynamic price: +1 kWh at 0.20
+ok   dynamic price: meter silent over 2 price changes -> the whole step at the latest price seen (0.40)
+ok   dynamic price: two meter reports between checks -> one step, one price (1 kWh x 0.40)
+ok   dynamic price: unavailable meter catches up 3 kWh at the latest price seen before (0.50)
+ok   price entity cleared -> fixed price again
+ok   total never went down (incl. price entity steps)
+ok   renamed sensors: counting continues on the renamed ids (+2 kWh), nothing reset
+ok   renamed back: same totals
+ok   M6 energy prefs saved with sensor.bill_match_total_cost as cost
+ok   M6 total cost is a 'sum' statistic in EUR
+     waiting up to 6 min for the first long-term statistics compile ...
+ok   M6 long-term statistics rows exist for the total cost
+     waiting for a statistics row with the current total ...
+ok   M6 statistics caught up with the current total
+     waiting up to ~13 min for the next statistics rows ...
+ok   M6 statistics: last row has the new total (after a restart)
+ok   M6 statistics sum grew by exactly the cost added (14 kWh x 0.22)
+ok   M6 statistics: no negative step in any 5-minute row
+ok   M6 Energy dashboard validation: no issues for the grid source
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_currency.py on fresh core
+ok   config check valid (core)
+ok   core GBP: both sensors carry the edited currency
+ok   GBP: GBP/kWh accepted -> 0.25 per kWh
+ok   GBP: p/kWh accepted -> 0.25 per kWh
+ok   GBP: ct/kWh refused (keeps the last price) + shown in problems
+ok   GBP: USD/kWh refused (keeps the last price) + shown in problems
+ok   GBP: EUR/MWh refused (keeps the last price) + shown in problems
+ok   core USD: both sensors carry the edited currency
+ok   USD: USD/kWh accepted -> 0.25 per kWh
+ok   USD: c/kWh accepted -> 0.25 per kWh
+ok   USD: ¢/kWh accepted -> 0.25 per kWh
+ok   USD: p/kWh refused (keeps the last price) + shown in problems
+ok   USD: GBP/kWh refused (keeps the last price) + shown in problems
+ok   core EUR: both sensors carry the edited currency
+ok   EUR: c/kWh accepted -> 0.25 per kWh
+ok   EUR: ¢/kWh refused (keeps the last price) + shown in problems
+ok   EUR: EUR/Wh accepted -> 0.25 per kWh
+ok   EUR: EUR/MWh accepted -> 0.25 per kWh
+ok   EUR: p/kWh refused (keeps the last price) + shown in problems
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_currency.py on fresh pro
+ok   config check valid (pro)
+ok   pro GBP: both sensors carry the edited currency
+ok   GBP: GBP/kWh accepted -> 0.25 per kWh
+ok   GBP: p/kWh accepted -> 0.25 per kWh
+ok   GBP: ct/kWh refused (keeps the last price) + shown in problems
+ok   GBP: USD/kWh refused (keeps the last price) + shown in problems
+ok   GBP: EUR/MWh refused (keeps the last price) + shown in problems
+ok   pro USD: both sensors carry the edited currency
+ok   USD: USD/kWh accepted -> 0.25 per kWh
+ok   USD: c/kWh accepted -> 0.25 per kWh
+ok   USD: ¢/kWh accepted -> 0.25 per kWh
+ok   USD: p/kWh refused (keeps the last price) + shown in problems
+ok   USD: GBP/kWh refused (keeps the last price) + shown in problems
+ok   pro EUR: both sensors carry the edited currency
+ok   EUR: c/kWh accepted -> 0.25 per kWh
+ok   EUR: ¢/kWh refused (keeps the last price) + shown in problems
+ok   EUR: EUR/Wh accepted -> 0.25 per kWh
+ok   EUR: EUR/MWh accepted -> 0.25 per kWh
+ok   EUR: p/kWh refused (keeps the last price) + shown in problems
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_units.py on fresh core
+ok   config check valid (core)
+ok   meter switched to Wh: starts from its current reading (nothing added)
+ok   Wh meter: +2.5 kWh x 0.3 = +0.75 counted
+ok   meter switched to MWh: starts from its current reading (nothing added)
+ok   MWh meter: +2.5 kWh x 0.3 = +0.75 counted
+ok   meter switched to kWh: starts from its current reading (nothing added)
+ok   kWh meter: +2.5 kWh x 0.3 = +0.75 counted
+ok   a kW sensor (not energy) is refused and shown in problems
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_units.py on fresh pro
+ok   config check valid (pro)
+ok   meter switched to Wh: starts from its current reading (nothing added)
+ok   Wh meter: +2.5 kWh x 0.3 = +0.75 counted
+ok   meter switched to MWh: starts from its current reading (nothing added)
+ok   MWh meter: +2.5 kWh x 0.3 = +0.75 counted
+ok   meter switched to kWh: starts from its current reading (nothing added)
+ok   kWh meter: +2.5 kWh x 0.3 = +0.75 counted
+ok   a kW sensor (not energy) is refused and shown in problems
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_midnight.py on fresh core
+ok   config check valid (core)
+ok   found a time zone with local midnight a few minutes away
+     zone Asia/Bishkek: local midnight in 11 min 18 s
+ok   config check valid (core)
+ok   test HA now runs in Asia/Bishkek (local date 2026-10-03)
+ok   edition under test = core
+ok   day 1: standing charge 1.00 for today
+ok   day 1: +2 kWh x 0.50
+ok   midnight passed (2026-10-03 -> 2026-10-04): the new day's standing charge added exactly once (total 2.00)
+ok   energy used across midnight counted once (+1 kWh)
+ok   restart + 3 refreshes after midnight: nothing added twice
+ok   counting_since unchanged by midnight + restart
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_midnight.py on fresh pro
+ok   config check valid (pro)
+ok   found a time zone with local midnight a few minutes away
+     zone Asia/Kathmandu: local midnight in 11 min 45 s
+ok   config check valid (pro)
+ok   test HA now runs in Asia/Kathmandu (local date 2026-10-03)
+ok   edition under test = pro
+ok   day 1: standing charge 1.00 for today
+ok   day 1: +2 kWh x 0.50
+ok   midnight passed (2026-10-03 -> 2026-10-04): the new day's standing charge added exactly once (total 2.00)
+ok   energy used across midnight counted once (+1 kWh)
+ok   Pro REAL clean roll-over: last period 2026-09-04 .. 2026-10-03 stored COMPLETE with that period's VAT factors (vf 1, ve 1.21)
+ok   Pro real roll-over: new period starts 2026-10-04, complete, this bill = the new day's 1.00 only
+ok   Pro: last-bill comparison works on the real roll-over (bill 5.61 - counted 2.605 = 3.01)
+ok   Pro: changing VAT after the roll-over does not change the hint (uses that period's stored factors)
+ok   restart + 3 refreshes after midnight: nothing added twice
+ok   counting_since unchanged by midnight + restart
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_midnight_restart.py on fresh pro
+ok   config check valid (pro)
+ok   found a time zone with local midnight a few minutes away
+     zone Asia/Colombo: local midnight in 11 min 38 s
+ok   config check valid (pro)
+ok   test HA now runs in Asia/Colombo (local date 2026-10-03)
+ok   edition under test = pro
+ok   day 1: standing charge 1.00 for today
+ok   day 1: +2 kWh x 0.50
+ok   HA was stopped 23:58:30 -> 00:00:30 local (outage across midnight)
+ok   day 2 reached after the restart
+ok   midnight passed (2026-10-03 -> 2026-10-04): the new day's standing charge added exactly once (total 2.00)
+ok   energy used across midnight counted once (+1 kWh)
+ok   Pro outage around midnight: last period stored but NOT complete, new period NOT complete (off_at_rollover)
+ok   Pro outage around midnight: no last-bill comparison
+ok   restart + 3 refreshes after midnight: nothing added twice
+ok   counting_since unchanged by midnight + restart
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_midnight_restart_before.py on fresh pro
+ok   config check valid (pro)
+ok   found a time zone with local midnight a few minutes away
+     zone Antarctica/Mawson: local midnight in 26 min 18 s
+ok   config check valid (pro)
+ok   test HA now runs in Antarctica/Mawson (local date 2026-10-03)
+ok   edition under test = pro
+ok   day 1: standing charge 1.00 for today
+ok   day 1: +2 kWh x 0.50
+ok   scenario timing: reached 23:59:05 from before it
+ok   HA restarted at 23:59:05 and answered again BEFORE midnight (23:59:11 local)
+ok   day 2 reached after the restart
+ok   midnight passed (2026-10-03 -> 2026-10-04): the new day's standing charge added exactly once (total 2.00)
+ok   energy used across midnight counted once (+1 kWh)
+ok   Pro restart_before around midnight: last period stored but NOT complete, new period NOT complete (off_at_rollover)
+ok   Pro restart_before around midnight: no last-bill comparison
+ok   restart + 3 refreshes after midnight: nothing added twice
+ok   counting_since unchanged by midnight + restart
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+== test_midnight_meter_gap.py on fresh pro
+ok   config check valid (pro)
+ok   found a time zone with local midnight a few minutes away
+     zone Asia/Kabul: local midnight in 26 min 44 s
+ok   config check valid (pro)
+ok   test HA now runs in Asia/Kabul (local date 2026-10-03)
+ok   edition under test = pro
+ok   day 1: standing charge 1.00 for today
+ok   day 1: +2 kWh x 0.50
+ok   scenario timing: reached 23:58:50 from before it
+ok   meter was unavailable over the 23:59 check (after a check with a reading at 23:58:50)
+ok   day 2 reached after the restart
+ok   midnight passed (2026-10-03 -> 2026-10-04): the new day's standing charge added exactly once (total 2.00)
+ok   energy used across midnight counted once (+1 kWh)
+ok   Pro meter_gap around midnight: last period stored but NOT complete, new period NOT complete (off_at_rollover)
+ok   Pro meter_gap around midnight: no last-bill comparison
+ok   restart + 3 refreshes after midnight: nothing added twice
+ok   counting_since unchanged by midnight + restart
+ok   no Bill Match template warnings/errors in the HA log
+RESULT: PASS
+OVERALL: PASS
