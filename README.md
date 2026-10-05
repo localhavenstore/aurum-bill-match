@@ -91,7 +91,7 @@ standing charge (once a day) and your own helper changes update the sensors. Hom
 removes old rows; the long-term statistics stay small.
 
 ## Pro edition
-**[Aurum Bill Match Pro](https://antrikos.gumroad.com/l/aurum-bill-match)** (Gumroad, EUR 7) replaces this file and keeps your history. It adds:
+**[Aurum Bill Match Pro](https://localhavenstore.gumroad.com/l/aurum-bill-match)** (Gumroad, EUR 7) replaces this file and keeps your history. It adds:
 - **monthly and yearly fixed fees** (spread over the days) and **monthly/yearly credits**,
 - up to **3 per-kWh levies** and **VAT** (on energy, and on fixed fees if you want),
 - your **bill period** (monthly, every 2 or 3 months, yearly - on your bill's start day) with **"this bill so far"**
