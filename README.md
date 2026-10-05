@@ -107,3 +107,10 @@ between two bills (usually a few cents). A fix is planned for 1.0.1.
 ## Licence
 MIT - see [LICENSE](LICENSE). Not affiliated with Home Assistant or the Open Home Foundation.
 Made with AI assistance and tested by us.
+
+
+## Support
+
+The tool is free and stays free. If it saved you time, you can leave a tip:
+[![Tip on Ko-fi](https://img.shields.io/badge/Ko--fi-leave%20a%20tip-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/localhaven)
+(optional - nothing is unlocked by it).
